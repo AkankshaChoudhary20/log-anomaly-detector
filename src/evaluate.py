@@ -23,28 +23,34 @@ def score(y_true, y_pred) -> dict:
 
 def group_into_incidents(df: pd.DataFrame, flagged: pd.Series, gap_minutes: int = 5) -> list[dict]:
     """Collapses consecutive/nearby flagged minutes into single incidents instead of one alert per minute."""
-    flagged_idx = df.index[flagged]
-    if len(flagged_idx) == 0:
+    if gap_minutes < 0:
+        raise ValueError('gap_minutes must be nonnegative')
+    ordered = df.copy()
+    ordered['timestamp'] = pd.to_datetime(ordered['timestamp'], utc=True)
+    if ordered['timestamp'].isna().any():
+        raise ValueError('timestamps must not be missing')
+    flagged_times = ordered.loc[flagged, 'timestamp'].sort_values()
+    if flagged_times.empty:
         return []
-
+    ordered = ordered.sort_values('timestamp')
     incidents = []
-    start = prev = flagged_idx[0]
-    for idx in flagged_idx[1:]:
-        if idx - prev <= gap_minutes:
-            prev = idx
+    start = previous = flagged_times.iloc[0]
+    for timestamp in flagged_times.iloc[1:]:
+        if timestamp - previous <= pd.Timedelta(minutes=gap_minutes):
+            previous = timestamp
             continue
-        incidents.append(_build_incident(df, start, prev))
-        start = prev = idx
-    incidents.append(_build_incident(df, start, prev))
+        incidents.append(_build_incident(ordered, start, previous))
+        start = previous = timestamp
+    incidents.append(_build_incident(ordered, start, previous))
     return incidents
 
 
-def _build_incident(df: pd.DataFrame, start_idx: int, end_idx: int) -> dict:
-    window = df.loc[start_idx:end_idx]
+def _build_incident(df: pd.DataFrame, start, end) -> dict:
+    window = df.loc[df['timestamp'].between(start, end)]
     return {
-        "start": window["timestamp"].iloc[0],
-        "end": window["timestamp"].iloc[-1],
-        "duration_minutes": end_idx - start_idx + 1,
-        "peak_latency_ms": round(window["latency_ms"].max(), 1),
-        "peak_error_rate": round(window["error_rate"].max(), 4),
+        'start': start,
+        'end': end,
+        'duration_minutes': (end - start).total_seconds() / 60 + 1,
+        'peak_latency_ms': round(window['latency_ms'].max(), 1),
+        'peak_error_rate': round(window['error_rate'].max(), 4),
     }

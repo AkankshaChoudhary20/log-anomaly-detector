@@ -39,8 +39,8 @@ def main():
         "IsolationForest": IsolationForestDetector(contamination=0.03),
     }
 
-    open(ALERTS_PATH, "w").close()  # reset alerts file for this run
     os.makedirs("output", exist_ok=True)
+    open(ALERTS_PATH, "w").close()  # reset alerts file for this run
 
     print(f"Loaded {len(df)} minutes of data ({y_true.sum()} true anomalous minutes)\n")
 
