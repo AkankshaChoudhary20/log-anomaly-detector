@@ -1,7 +1,13 @@
+import numpy as np
 import pandas as pd
 
 
 def score(y_true, y_pred) -> dict:
+    y_true, y_pred = np.asarray(y_true), np.asarray(y_pred)
+    if y_true.ndim != 1 or y_pred.ndim != 1 or y_true.shape != y_pred.shape:
+        raise ValueError("Labels must be one-dimensional arrays of equal length.")
+    if not np.isin(y_true, [0, 1]).all() or not np.isin(y_pred, [0, 1]).all():
+        raise ValueError("Labels must contain only boolean or binary values.")
     tp = int(((y_pred == True) & (y_true == True)).sum())
     fp = int(((y_pred == True) & (y_true == False)).sum())
     fn = int(((y_pred == False) & (y_true == True)).sum())
@@ -54,3 +60,4 @@ def _build_incident(df: pd.DataFrame, start, end) -> dict:
         'peak_latency_ms': round(window['latency_ms'].max(), 1),
         'peak_error_rate': round(window['error_rate'].max(), 4),
     }
+
