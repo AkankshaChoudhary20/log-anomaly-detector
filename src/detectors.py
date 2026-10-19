@@ -16,10 +16,14 @@ class RollingZScoreDetector:
         flagged = np.zeros(len(df), dtype=bool)
         for col in FEATURES:
             series = df[col]
-            rolling_mean = series.rolling(self.window, min_periods=self.window).mean()
-            rolling_std = series.rolling(self.window, min_periods=self.window).std()
-            z = (series - rolling_mean) / rolling_std.replace(0, np.nan)
-            flagged |= (z.abs() > self.threshold).fillna(False).to_numpy()
+            # The current sample must not dilute its own anomaly score.
+            history = series.shift(1).rolling(self.window, min_periods=self.window)
+            rolling_mean = history.mean()
+            rolling_std = history.std()
+            deviation = (series - rolling_mean).abs()
+            z = deviation / rolling_std.replace(0, np.nan)
+            constant_baseline_spike = rolling_std.eq(0) & deviation.gt(0)
+            flagged |= ((z > self.threshold) | constant_baseline_spike).fillna(False).to_numpy()
         return flagged
 
 
@@ -33,3 +37,4 @@ class IsolationForestDetector:
         X = df[FEATURES].to_numpy()
         labels = self.model.fit_predict(X)  # -1 = anomaly, 1 = normal
         return labels == -1
+
