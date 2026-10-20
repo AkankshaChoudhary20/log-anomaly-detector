@@ -9,6 +9,10 @@ class RollingZScoreDetector:
     """Flags a minute as anomalous if either feature's rolling z-score exceeds the threshold."""
 
     def __init__(self, window: int = 60, threshold: float = 3.5):
+        if type(window) is not int or window < 2:
+            raise ValueError("window must be an integer of at least 2")
+        if isinstance(threshold, bool) or not isinstance(threshold, (int, float)) or not np.isfinite(threshold) or threshold <= 0:
+            raise ValueError("threshold must be a finite positive number")
         self.window = window
         self.threshold = threshold
 
@@ -37,4 +41,5 @@ class IsolationForestDetector:
         X = df[FEATURES].to_numpy()
         labels = self.model.fit_predict(X)  # -1 = anomaly, 1 = normal
         return labels == -1
+
 
